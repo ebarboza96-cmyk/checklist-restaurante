@@ -269,6 +269,19 @@
     if (pendingRender) { pendingRender = false; setTimeout(requestRender, 0); }
   });
 
+  var avTab = "pend";   // qué se ve en la vista de avance: "pend" o "hecho"
+  var toastTimer = null;
+  function toast(msg, undo) {
+    var t = $("toast");
+    if (!t) { t = el("div", { id: "toast", class: "toast", role: "status" }); document.body.appendChild(t); }
+    t.textContent = "";
+    t.appendChild(el("span", { text: msg }));
+    t.appendChild(el("button", { type: "button", text: "Deshacer", onclick: function () { t.hidden = true; undo(); } }));
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.hidden = true; }, 6000);
+  }
+
   function renderTabs() {
     var nav = $("tabs");
     nav.textContent = "";
@@ -342,8 +355,12 @@
     li.appendChild(el("input", {
       type: "checkbox", id: cbId, checked: s.done ? "" : null,
       onchange: function (e) {
-        setSt(it, e.target.checked ? { done: true, flag: false } : { done: false });
+        var on = e.target.checked;
+        setSt(it, on ? { done: true, flag: false } : { done: false });
         render();
+        if (filter === "avance") {
+          toast(on ? "✓ Pasó a «Ya está hecho»" : "Volvió a «Pendiente»", function () { setSt(it, { done: !on }); render(); });
+        }
       }
     }));
     li.appendChild(el("label", { for: cbId, text: it.text }));
@@ -402,7 +419,20 @@
   function renderAvance(list) {
     var root = $("sections");
     root.textContent = "";
+    var counts = { pend: 0, hecho: 0 };
+    list.sections.forEach(function (sec) {
+      itemsOf(list, sec).forEach(function (it) { var s = st(it); if (matchWho(s)) counts[s.done ? "hecho" : "pend"]++; });
+    });
+    var sw = el("div", { class: "switch", role: "tablist" });
+    [["pend", "Pendiente"], ["hecho", "Ya está hecho"]].forEach(function (t) {
+      sw.appendChild(el("button", {
+        class: "sw " + t[0], type: "button", role: "tab", "aria-selected": String(avTab === t[0]),
+        onclick: function () { avTab = t[0]; render(); }
+      }, [el("b", { text: String(counts[t[0]]) }), document.createTextNode(t[1])]));
+    });
+    root.appendChild(sw);
     [["pend", "Pendiente", false], ["hecho", "Ya está hecho", true]].forEach(function (g) {
+      if (g[0] !== avTab) return;
       var count = 0, body = el("div", {});
       list.sections.forEach(function (sec) {
         var its = itemsOf(list, sec).filter(function (it) { var s = st(it); return matchWho(s) && !!s.done === g[2]; });
@@ -414,13 +444,7 @@
         body.appendChild(ul);
       });
       if (!count) body.appendChild(el("p", { class: "empty", text: g[2] ? "Todavía no hay nada marcado como hecho." : "No queda nada pendiente. 🎉" }));
-      var key = list.id + "/~" + g[0];
-      var det = el("details", { class: "sec grp " + g[0], open: (key in openSecs ? openSecs[key] : true) ? "" : null });
-      det.addEventListener("toggle", function () { openSecs[key] = det.open; });
-      det.appendChild(el("summary", {}, [
-        el("span", { class: "sec-title", text: g[1] }),
-        el("span", { class: "sec-count", text: String(count) })
-      ]));
+      var det = el("div", { class: "sec grp " + g[0] });
       det.appendChild(body);
       root.appendChild(det);
     });

@@ -152,3 +152,14 @@ h1 { margin: 2px 0 12px; font: 700 26px/1.15 Georgia, "Times New Roman", serif; 
 .grp.pend .sec-count { background: var(--ember-soft); color: var(--ember); }
 .grp.hecho .sec-count { background: var(--ok-soft); color: var(--ok); }
 .sub { margin: 0; padding: 10px 16px 8px; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--bg); border-top: 1px solid var(--line); }
+
+.switch { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.sw { font: inherit; font-weight: 700; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 8px; border-radius: 14px; border: 2px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; }
+.sw b { font: 700 28px/1 Georgia, serif; }
+.sw.pend[aria-selected="true"] { border-color: var(--ember); background: var(--ember-soft); color: var(--ember); }
+.sw.hecho[aria-selected="true"] { border-color: var(--ok); background: var(--ok-soft); color: var(--ok); }
+.grp .sub:first-child { border-top: 0; }
+.toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 10; display: flex; gap: 14px; align-items: center; max-width: calc(100vw - 32px); background: var(--ink); color: var(--bg); padding: 10px 10px 10px 16px; border-radius: 99px; font-size: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+.toast[hidden] { display: none; }
+.toast button { font: inherit; font-weight: 700; border: 0; border-radius: 99px; padding: 6px 12px; background: var(--bg); color: var(--ink); cursor: pointer; }
+@media print { .switch, .toast { display: none !important; } }
