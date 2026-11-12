@@ -16,7 +16,7 @@
   var ui = { tab: LISTS[0].id };   // solo de este dispositivo
   var team = "";                   // código del equipo (va en el enlace)
   var queue = [];                  // cambios hechos sin conexión
-  var filter = "todo";
+  var filter = "avance";
   var who = "";                    // "" todos · "-" sin responsable · nombre
   var openSecs = {};
   var online = false;
@@ -277,7 +277,7 @@
       nav.appendChild(el("button", {
         class: "tab", type: "button", role: "tab",
         "aria-selected": String(list.id === ui.tab),
-        onclick: function () { ui.tab = list.id; filter = "todo"; saveLocal(); render(); window.scrollTo(0, 0); }
+        onclick: function () { ui.tab = list.id; saveLocal(); render(); window.scrollTo(0, 0); }
       }, [
         document.createTextNode(list.name),
         el("small", { text: s.done + "/" + s.total })
@@ -297,7 +297,7 @@
 
     var chips = $("filters");
     chips.textContent = "";
-    [["todo", "Todo"], ["pend", "Pendientes (" + (s.total - s.done) + ")"], ["flag", "Fallas (" + s.flags.length + ")"]].forEach(function (f) {
+    [["avance", "Pendiente y hecho"], ["todo", "Por sección"], ["flag", "Fallas (" + s.flags.length + ")"]].forEach(function (f) {
       chips.appendChild(el("button", {
         class: "chip", type: "button", "aria-pressed": String(filter === f[0]), text: f[1],
         onclick: function () { filter = f[0]; render(); }
@@ -398,7 +398,36 @@
     return li;
   }
 
+  // Vista de avance: un bloque con lo pendiente y otro con lo que ya está hecho
+  function renderAvance(list) {
+    var root = $("sections");
+    root.textContent = "";
+    [["pend", "Pendiente", false], ["hecho", "Ya está hecho", true]].forEach(function (g) {
+      var count = 0, body = el("div", {});
+      list.sections.forEach(function (sec) {
+        var its = itemsOf(list, sec).filter(function (it) { var s = st(it); return matchWho(s) && !!s.done === g[2]; });
+        if (!its.length) return;
+        count += its.length;
+        body.appendChild(el("h3", { class: "sub", text: sec.title + " (" + its.length + ")" }));
+        var ul = el("ul", { class: "items" });
+        its.forEach(function (it) { ul.appendChild(renderItem(list, sec, it)); });
+        body.appendChild(ul);
+      });
+      if (!count) body.appendChild(el("p", { class: "empty", text: g[2] ? "Todavía no hay nada marcado como hecho." : "No queda nada pendiente. 🎉" }));
+      var key = list.id + "/~" + g[0];
+      var det = el("details", { class: "sec grp " + g[0], open: (key in openSecs ? openSecs[key] : true) ? "" : null });
+      det.addEventListener("toggle", function () { openSecs[key] = det.open; });
+      det.appendChild(el("summary", {}, [
+        el("span", { class: "sec-title", text: g[1] }),
+        el("span", { class: "sec-count", text: String(count) })
+      ]));
+      det.appendChild(body);
+      root.appendChild(det);
+    });
+  }
+
   function renderSections(list) {
+    if (filter === "avance") return renderAvance(list);
     var root = $("sections");
     root.textContent = "";
     list.sections.forEach(function (sec) {
@@ -500,7 +529,7 @@
       });
     });
     write(["items", list.id], Object.keys(keep).length ? keep : null);
-    filter = "todo";
+    filter = "avance";
     render();
   });
   $("printBtn").addEventListener("click", function () {
