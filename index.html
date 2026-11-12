@@ -24,7 +24,10 @@
     </div>
     <div class="bar"><div class="bar-fill" id="barFill"></div></div>
     <div class="tools">
-      <div class="chips" id="filters"></div>
+      <div class="chips">
+        <span class="chips" id="filters"></span>
+        <select id="whoSel" class="who" aria-label="Ver las tareas de una persona"></select>
+      </div>
       <div class="actions">
         <button class="btn ghost" id="resetBtn" type="button">Reiniciar lista</button>
         <button class="btn ghost" id="printBtn" type="button">Imprimir</button>
@@ -39,12 +42,23 @@
 
   <div id="sections"></div>
 
+  <section class="people">
+    <h2>Encargados</h2>
+    <div class="people-list" id="peopleList"></div>
+    <form class="add" id="personForm">
+      <input type="text" id="personInput" placeholder="Nombre (ej. Emanuel)" aria-label="Agregar persona" maxlength="40">
+      <button type="submit">Agregar persona</button>
+    </form>
+  </section>
+
   <footer class="foot">
-    <p>Lo que marcas se guarda solo en este dispositivo. Usa <button class="link" id="exportBtn" type="button">Exportar</button> / <button class="link" id="importBtn" type="button">Importar</button> para pasarlo a otro teléfono.</p>
+    <div class="sync" id="sync"></div>
+    <p>Copia de seguridad: <button class="link" id="exportBtn" type="button">Exportar</button> / <button class="link" id="importBtn" type="button">Importar</button></p>
     <input type="file" id="importFile" accept="application/json" hidden>
   </footer>
 </main>
 
+<script src="config.js"></script>
 <script src="data.js"></script>
 <script src="app.js"></script>
 </body>
