@@ -5,5 +5,5 @@ window.CHECKLIST_CONFIG = {
   jsonbin: { binId: "", accessKey: "" },
 
   // Alternativa en vivo: URL de una Realtime Database de Firebase (ver README).
-  databaseURL: ""
+  databaseURL: "https://checklist-restaurante-c73bc-default-rtdb.firebaseio.com"
 };
