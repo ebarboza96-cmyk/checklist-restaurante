@@ -115,7 +115,66 @@
   function url(parts) {
     return DB + "/equipos/" + team + (parts.length ? "/" + parts.map(encodeURIComponent).join("/") : "") + ".json";
   }
+  /* ---------- guardado compartido con JSONBin (un solo archivo en la nube) ---------- */
+  // No es en vivo: se baja al abrir, al tocar "Actualizar" y cada vez que se guarda un cambio.
+  // Antes de guardar se baja la última versión y se le aplican encima solo los cambios de este
+  // dispositivo, para no borrar lo que marcaron los demás.
+  var JB = (isLocal && new URLSearchParams(location.search).get("jb"))
+    ? { binId: "prueba", accessKey: "x", base: "/jb" }
+    : (CFG.jsonbin && CFG.jsonbin.binId && CFG.jsonbin.accessKey ? CFG.jsonbin : null);
+  var jbBusy = false, jbTimer = null, jbLast = 0, jbError = false;
+  function shared() { return !!(JB || (DB && team)); }
+  function jbUrl() { return (JB.base || "https://api.jsonbin.io/v3") + "/b/" + JB.binId; }
+  function jbSchedule() {
+    clearTimeout(jbTimer);
+    jbTimer = setTimeout(jbSync, 2500);
+    renderSync();
+  }
+  function jbSync() {
+    if (!JB) return;
+    clearTimeout(jbTimer);
+    if (jbBusy) { jbTimer = setTimeout(jbSync, 1500); return; }
+    jbBusy = true;
+    renderSync();
+    var sent = 0;
+    fetch(jbUrl() + "/latest", { headers: { "X-Access-Key": JB.accessKey, "X-Bin-Meta": "false" }, cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (remote) {
+        var first = ui.jb !== JB.binId;
+        var remoteEmpty = !remote || !(remote.items || remote.custom || remote.people);
+        if (first && remoteEmpty && hasData()) queue = [{ p: [], v: JSON.parse(JSON.stringify(data)) }];   // sube lo que ya había aquí
+        else if (first) queue = [];
+        ui.jb = JB.binId;
+        setAt([], remote);
+        queue.forEach(function (x) { setAt(x.p, x.v); });
+        if (!queue.length) return;
+        sent = queue.length;
+        return fetch(jbUrl(), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", "X-Access-Key": JB.accessKey, "X-Bin-Versioning": "false" },
+          body: JSON.stringify({ v: 1, items: data.items, custom: data.custom, people: data.people })
+        }).then(function (r) { if (!r.ok) throw new Error(r.status); queue = queue.slice(sent); });
+      })
+      .then(function () { jbError = false; jbLast = Date.now(); }, function () { jbError = true; })
+      .then(function () {
+        jbBusy = false;
+        saveLocal();
+        renderSync();
+        requestRender();
+        if (!jbError && queue.length) jbSchedule();
+      });
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (JB && !document.hidden && Date.now() - jbLast > 120000) jbSync();
+  });
+
   function push(parts, v) {
+    if (JB) {
+      queue.push({ p: parts, v: v == null ? null : v });
+      saveLocal();
+      jbSchedule();
+      return;
+    }
     if (!DB || !team) return;
     fetch(url(parts), { method: "PUT", body: JSON.stringify(v == null ? null : v) })
       .then(function (r) { if (!r.ok) throw new Error(r.status); })
@@ -153,6 +212,7 @@
     requestRender();
   }
   function connect() {
+    if (JB) { jbSync(); return; }
     if (es) es.close();
     if (!DB || !team || !window.EventSource) return;
     es = new EventSource(url([]));
@@ -181,6 +241,18 @@
     var box = $("sync");
     box.textContent = "";
     box.className = "sync";
+    if (JB) {
+      var waiting = queue.length > 0;
+      box.className = "sync " + (jbError ? "off" : "on");
+      var hora = jbLast ? new Date(jbLast).toLocaleTimeString("es-CR", { hour: "2-digit", minute: "2-digit" }) : "";
+      box.appendChild(el("span", {
+        text: jbError ? "● No se pudo conectar con la nube. Lo suyo queda guardado aquí y se manda al reintentar."
+          : jbBusy || waiting ? "● Guardando para todo el equipo…"
+          : "● Compartido con el equipo" + (hora ? " · actualizado a las " + hora : "") + " · Toque Actualizar para ver lo que marcaron los demás."
+      }));
+      box.appendChild(el("button", { class: "btn", type: "button", text: jbError ? "Reintentar" : "Actualizar", onclick: jbSync }));
+      return;
+    }
     if (!DB) {
       box.appendChild(el("span", { text: "💾 Guardado solo en este dispositivo (todavía sin sincronización)." }));
       return;
@@ -543,7 +615,7 @@
     var msg = (list.reset
       ? "¿Empezar un turno nuevo? Se desmarcan todos los puntos de «" + list.name + "»"
       : "¿Desmarcar TODOS los puntos de «" + list.name + "»")
-      + (DB && team ? " para todo el equipo" : "") + ". Los encargados de cada tarea se mantienen.";
+      + (shared() ? " para todo el equipo" : "") + ". Los encargados de cada tarea se mantienen.";
     if (!confirm(msg)) return;
     var keep = {};
     var cur = getAt(["items", list.id]) || {};
@@ -574,7 +646,7 @@
       try {
         var s = JSON.parse(r.result);
         if (!s || !s.data || typeof s.data.items !== "object") throw new Error();
-        if (!confirm("¿Reemplazar todo lo marcado" + (DB && team ? " (para todo el equipo)" : "") + " con el archivo importado?")) return;
+        if (!confirm("¿Reemplazar todo lo marcado" + (shared() ? " (para todo el equipo)" : "") + " con el archivo importado?")) return;
         setAt([], s.data);
         write([], data);
         render();
